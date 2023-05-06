@@ -4,33 +4,19 @@ import { Filter } from 'components/Filter';
 import { Report } from 'notiflix/build/notiflix-report-aio';
 import { Section, Title } from './App.styles';
 import * as LS from 'services/localStorageApi';
-import { Component } from 'react';
+import { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import { nanoid } from 'nanoid';
 
-export class App extends Component {
-  static propTypes = {
-    title: PropTypes.string.isRequired,
-  };
+export const App = ({ title }) => {
+  const [contacts, setContacts] = useState(() => LS.getContacts());
+  const [filter, setFilter] = useState('');
 
-  state = {
-    contacts: [],
-    filter: '',
-  };
+  useEffect(() => {
+    LS.setContacts(contacts);
+  }, [contacts]);
 
-  componentDidMount() {
-    this.setState({ contacts: LS.getContacts() });
-  }
-
-  componentDidUpdate(_, prevState) {
-    if (prevState.contacts !== this.state.contacts) {
-      LS.setContacts(this.state.contacts);
-    }
-  }
-
-  addContact = (newContact, { resetForm }) => {
-    const { contacts } = this.state;
-
+  const addContact = (newContact, { resetForm }) => {
     const isNewContact = !contacts.find(
       ({ name }) => name.toLowerCase() === newContact.name.toLowerCase()
     );
@@ -42,49 +28,43 @@ export class App extends Component {
       return;
     }
 
-    this.setState(({ contacts: currentContacts }) => ({
-      contacts: [{ ...newContact, id: nanoid() }, ...currentContacts],
-    }));
-
+    setContacts(prevContacts => [
+      { ...newContact, id: nanoid() },
+      ...prevContacts,
+    ]);
     resetForm();
   };
 
-  deleteContact = id => {
-    this.setState(({ contacts }) => ({
-      contacts: contacts.filter(contact => contact.id !== id),
-    }));
-  };
-
-  updateFilterValue = value => {
-    this.setState({ filter: value });
-  };
-
-  toFilterContactsForName = () => {
-    const { contacts, filter } = this.state;
-
-    if (contacts.length > 0) {
-      return contacts.filter(({ name }) => {
-        const text = name.toLowerCase();
-        const filterText = filter.toLowerCase();
-        return text.includes(filterText);
-      });
-    } else {
-      return [];
-    }
-  };
-
-  render() {
-    const { filter } = this.state;
-    const { title } = this.props;
-    const contacts = this.toFilterContactsForName();
-
-    return (
-      <Section>
-        <Title>{title}</Title>
-        <ContactForm onSubmit={this.addContact} />
-        <Filter onChange={this.updateFilterValue} value={filter} />
-        <ContactList contacts={contacts} toDeleteContact={this.deleteContact} />
-      </Section>
+  const deleteContact = id => {
+    setContacts(prevContacts =>
+      prevContacts.filter(contact => contact.id !== id)
     );
-  }
-}
+  };
+
+  const updateFilterValue = value => setFilter(value);
+
+  const filteredContacts =
+    contacts.length > 0
+      ? contacts.filter(({ name }) => {
+          const text = name.toLowerCase();
+          const filterText = filter.toLowerCase();
+          return text.includes(filterText);
+        })
+      : [];
+
+  return (
+    <Section>
+      <Title>{title}</Title>
+      <ContactForm onSubmit={addContact} />
+      <Filter onChange={updateFilterValue} value={filter} />
+      <ContactList
+        contacts={filteredContacts}
+        toDeleteContact={deleteContact}
+      />
+    </Section>
+  );
+};
+
+App.propTypes = {
+  title: PropTypes.string.isRequired,
+};
